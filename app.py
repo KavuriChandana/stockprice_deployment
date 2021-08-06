@@ -1,95 +1,90 @@
 import numpy as np
 import pandas as pd
+import nltk
+nltk.download('stopwords')
+from nltk.corpus import stopwords
+nltk.download('punkt')
+nltk.download('wordnet')
+from nltk.stem import LancasterStemmer, WordNetLemmatizer, PorterStemmer
+from nltk.tokenize import word_tokenize
+nltk.download('vader_lexicon')
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+from sklearn.metrics import accuracy_score, classification_report
+from textblob import TextBlob
+import string
+import pickle
 import streamlit as st
-from sklearn.preprocessing import MinMaxScaler
-import keras
-import datetime
 
-model = keras.models.load_model("fb_LRModel.pkl")
+pickle_in = open("fb_LRModel.pkl","rb")
+Model = pickle.load(pickle_in)
+                 
+def lemmat(text):
+    lemma=WordNetLemmatizer()
+    words=word_tokenize(text)
+    return ' '.join([lemma.lemmatize(word) for word in words])
 
-def welcome():
-    return "Welcome All"
+def getsubjectivity(text):
+    return TextBlob(text).sentiment.subjectivity
+def getpolarity(text):
+    return TextBlob(text).sentiment.polarity
 
-def predict_price(final_features):
-	pred_price = model.predict(final_features)
-	return pred_price
+def char_rmvl(text):               
+    new=[char for char in text if char not in string.punctuation]
+    vl=''.join(new)
+    new.clear()
+    return vl
+                 
+def preprocess(Headlines):
+    Headlines1 = [ x.lower() for x in Headlines]
+    Headlines1 = [char_rmvl(x) for x in Headlines1]
+    stop = stopwords.words('english')
+    Headlines1 = [' '.join([word for word in s.split() if word not in (stop)]) for s in Headlines1]
+    Headlines1 = [lemmat(s) for s in Headlines1]
+    return Headlines1
+
+def price(High,Low,Open,Volume,Headlines):
+    ml = pd.DataFrame()
+    ml['Volume']=Volume,Volume
+    ml['Open']=Open,Open
+    ml['High']=High,High
+    ml['Low']=Low,Low
+    ml['Headlines']=Headlines,Headlines
+    ml['Headlines']=ml['Headlines'].astype(str)
+    sid= SentimentIntensityAnalyzer()
+    ml['compound'] = ml['Headlines'].apply(lambda x: sid.polarity_scores(x)['compound'])
+    ml['negative'] = ml['Headlines'].apply(lambda x: sid.polarity_scores(x)['neg'])
+    ml['neutral'] = ml['Headlines'].apply(lambda x: sid.polarity_scores(x)['neu'])
+    ml['positive'] = ml['Headlines'].apply(lambda x: sid.polarity_scores(x)['pos'])
+
+    ml['Subjectivity']=ml['Headlines'].apply(getsubjectivity)
+    ml['Polarity']=ml['Headlines'].apply(getpolarity)
+
+    k= ml[['Open','High','Low','Volume','positive','neutral','positive','compound','Subjectivity','Polarity']]
+    return k
 
 def main():
-	st.title("Facebook Inc. Stock Price Prediction")
-	html_temp = """
-	<div style="background-color:rgb(0, 238, 255);padding:10px">
-	<h2 style="color:rgb(255, 124, 37);text-shadow: 0 4px 10px rgba(0, 0, 0, 0.603);text-align:center;">Apple Inc. Predicted CLosed Price</h2>
-	</div>
-	"""
-
-	st.markdown(html_temp,unsafe_allow_html=True)
+    st.title("Facebook Inc. Stock price Pridiction")
+    html_temp = """
+    <div style="background-color:rgb(0, 238, 255);padding:10px">
+    <h2 style="color:rgb(255, 124, 37);text-shadow: 0 4px 10px rgba(0, 0, 0, 0.603);text-align:center;">Facebook Inc.Predicted Closed Price</h2>
+    </div>
+    """
+    st.markdown(html_temp,unsafe_allow_html=True)
+    High = st.text_input("High")
+    Low = st.text_input("Low")
+    Open = st.text_input("Open")
+    Volume = st.text_input("Volume")
+    Headlines= st.text_input("Headlines")
+    Headlines=list(Headlines.split("-"))
+    hdlines1 = preprocess(Headlines)
+    kn=pd.DataFrame()
+    kn=price(High,Low,Open,Volume,hdlines1)
+    kn1=np.array(kn)
+   
     
-	stock_data = pd.read_csv('stockdata.csv', parse_dates = ['Date'], index_col = 'Date')
-	X = stock_data['Close/Last']
-
-	# Getting the start day and next day from the dataset
-	start_day = stock_data.index[0]
-	last_day = stock_data.index[-1]
-	next_day = last_day + datetime.timedelta(days = 1)
-
-	# Taking date input
-	input_date = st.date_input("Enter a Date: ", next_day)
-	# Updating Date input
-	input_date = datetime.datetime.strptime(str(input_date) + ' 00:00:00', '%Y-%m-%d %H:%M:%S')
-
-	if input_date <= next_day and input_date >= start_day + datetime.timedelta(days = 20):
-
-		scaler = MinMaxScaler(feature_range=(0,1))
-
-		# Create a list of dates from the stock_data and get the index of the input date
-		dates_list = []
-		for dt in stock_data.index:
-			dates_list.append(str(dt))
-
-		j = 1
-		while str(input_date - datetime.timedelta(days = j)) not in dates_list:
-			j += 1
-
-		i = dates_list.index(str(input_date - datetime.timedelta(days = j)))
-
-		X = stock_data.filter(['Close/Last'])
-		# Get the last 20 day closing price values and convert the dataframe to an array
-		last_20_days = X[i-20: i].values
-		# Scale the data to be values between 0 and 1
-		last_20_days_scaled = scaler.fit_transform(last_20_days)
-		# Create an empty list
-		X_test = []
-		# Append the past 20 days
-		X_test.append(last_20_days_scaled)
-		# Convert the X_test data set to a numpy array
-		X_test = np.array(X_test)
-		# Reshape the data
-		X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
-
-		# Predict the Close Price
-		result = 0
-		if st.button("Predict"):
-			result = predict_price(X_test)
-
-		# undo the scaling
-		result = np.array(result).reshape(1,-1)
-		pred_price = scaler.inverse_transform(result)
-
-		st.success("Predicted Close Price for {} is ${}".format(input_date, pred_price))
-
-		# Percentage increase or decrease in Closed Price
-		previous = pred_price
-		previous_pred_price = X.at[str(input_date - datetime.timedelta(days = j)), 'Close/Last']
-
-		diff=(float)(pred_price - previous_pred_price)
-		if(diff < 0):
-			st.write("percentage decrease = ",round(((- (diff)/previous_pred_price)*100),2))
-		else:
-			st.write("percentage increase = ",round((( (diff)/previous_pred_price)*100),2))
-
-	else:
-		st.error('Error: Either the date is above the last date of the dataset OR below the start date + 20 days of the dataset. Please enter a date between or equal to {} and {} !!'.format(start_day + datetime.timedelta(days = 20), next_day))
-
-
-if __name__ == '__main__':
+    ans=''
+    if st.button("Predict"):
+        ans = Model.predict(kn1)[0]
+    st.success('Predicted Price : $ {}'.format(ans))            
+if __name__ =='__main__':
     main()
