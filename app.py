@@ -80,8 +80,6 @@ def main():
     kn=pd.DataFrame()
     kn=price(High,Low,Open,Volume,hdlines1)
     kn1=np.array(kn)
-   
-    
     ans=''
     if st.button("Predict"):
         ans = Model.predict(kn1)[0]
