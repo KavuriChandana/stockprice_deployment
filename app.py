@@ -15,7 +15,7 @@ import string
 import pickle
 import streamlit as st
 
-pickle_in = open("fb_LRModel.pkl","rb")
+pickle_in = open("fb_LRModel.pkl(1)","rb")
 Model = pickle.load(pickle_in)
                  
 def lemmat(text):
