@@ -15,7 +15,7 @@ import string
 import pickle
 import streamlit as st
 
-pickle_in = open("fb_LRModel.pkl(1)","rb")
+pickle_in = open("fb_LRModel.pkl","rb")
 Model = pickle.load(pickle_in)
                  
 def lemmat(text):
@@ -80,6 +80,8 @@ def main():
     kn=pd.DataFrame()
     kn=price(High,Low,Open,Volume,hdlines1)
     kn1=np.array(kn)
+   
+    
     ans=''
     if st.button("Predict"):
         ans = Model.predict(kn1)[0]
