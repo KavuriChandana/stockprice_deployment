@@ -65,7 +65,7 @@ def price(High,Low,Open,Volume,Headlines):
 def main():
     st.title("Facebook Inc. Stock price Pridiction")
     html_temp = """
-    <div style="background-color:rgb(0, 238, 255);padding:10px">
+    <div style="background-color:rgb(128, 0, 255);padding:10px">
     <h2 style="color:rgb(255, 124, 37);text-shadow: 0 4px 10px rgba(0, 0, 0, 0.603);text-align:center;">Facebook Inc.Predicted Closed Price</h2>
     </div>
     """
